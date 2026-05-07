@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Калькулятор дозировок v3.0.8</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#3498db">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <style>
+        :root {
+            --primary: #3498db;
+            --danger: #e74c3c;
+            --success: #27ae60;
+            --bg: #f9f9f9;
+            --text: #333;
+            --border: #ddd;
+            --table-bg: white;
+        }
+
+        .dark-theme {
+            --primary: #2980b9;
+            --danger: #c0392b;
+            --success: #219a52;
+            --bg: #2d3436;
+            --text: #ecf0f1;
+            --border: #555;
+            --table-bg: #34495e;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px 30px;
+            background-color: var(--bg);
+            color: var(--text);
+            transition: background 0.3s, color 0.3s;
+        }
+
+        h2 {
+            color: var(--primary);
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .header-actions {
+            display: flex;
+            justify-content: flex-start;
+            margin-bottom: 15px;
+        }
+
+        .theme-toggle {
+            padding: 8px 15px;
+            background-color: #7f8c8d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .search-container {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            max-width: 500px;
+        }
+
+        #searchInput {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            background: var(--table-bg);
+            color: var(--text);
+            font-size: 16px;
+        }
+
+        .btn-clear {
+            background-color: #bdc3c7;
+            color: #2c3e50;
+            padding: 10px 15px;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 20px;
+            background-color: var(--table-bg);
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            border: 1px solid var(--border);
+            padding: 12px;
+            text-align: left;
+        }
+
+        th {
+            background-color: var(--primary);
+            color: white;
+        }
+
+        .required::after { content: " *"; color: var(--danger); }
+
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            box-sizing: border-box;
+            background-color: var(--table-bg);
+            color: var(--text);
+            font-size: 16px;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        .btn-main {
+            background-color: var(--primary);
+            color: white;
+            margin-bottom: 20px;
+        }
+
+        .delete-btn {
+            background-color: var(--danger);
+            color: white;
+            padding: 6px 12px;
+        }
+
+        .btn-sec {
+            background-color: #7f8c8d;
+            color: white;
+        }
+
+        .btn-danger-all {
+            background-color: var(--danger);
+            color: white;
+        }
+
+        .result {
+            font-weight: bold;
+            color: var(--success);
+        }
+
+        .backup-controls {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border);
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .save-notification {
+            position: fixed;
+            bottom: 30px;
+            right: -100%;
+            background: var(--success);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            transition: right 0.3s ease-out;
+            z-index: 1000;
+        }
+
+        .save-notification.show { right: 30px; }
+
+        #fileInput { display: none; }
+
+        @media (max-width: 768px) {
+            body { margin: 15px; }
+            .theme-toggle { width: auto; }
+            .btn-main, .backup-controls button { width: 100%; }
+            .search-container { max-width: 100%; }
+            thead { display: none; }
+            tr {
+                display: block;
+                margin-bottom: 15px;
+                border: 2px solid var(--primary);
+                border-radius: 6px;
+                padding: 10px;
+                background: var(--table-bg);
+            }
+            td {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                border: none;
+                border-bottom: 1px solid var(--border);
+                padding: 10px 0;
+            }
+            td::before {
+                content: attr(data-label);
+                font-weight: bold;
+                flex: 1;
+                color: var(--primary);
+                font-size: 0.85em;
+                margin-right: 5px;
+            }
+            td input { flex: 1.5; }
+            td:last-child { border-bottom: none; justify-content: center; padding-top: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header-actions">
+    <button class="theme-toggle" onclick="toggleTheme()">🌓 Сменить тему</button>
+</div>
+
+<h2>Калькулятор дозировок v3.0.8</h2>
+
+<div class="search-container">
+    <input type="text" id="searchInput" placeholder="Поиск по препарату или животному..." oninput="filterRows()">
+    <button class="btn-clear" onclick="clearSearch()">Очистить</button>
+</div>
+
+<table id="calculator">
+    <thead>
+        <tr>
+            <th>Дата и время</th>
+            <th class="required">Название препарата</th>
+            <th>Животное</th>
+            <th class="required">Концентрация (мг/мл)</th>
+            <th class="required">Дозировка (мг/кг)</th>
+            <th class="required">Вес (кг)</th>
+            <th>Результат (мл)</th>
+            <th>Действия</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<button class="btn-main" onclick="addNewRow()">Добавить строку</button>
+
+<div class="backup-controls">
+    <button class="btn-sec" onclick="exportEncrypted()">💾 Сохранить бэкап</button>
+    <button class="btn-sec" onclick="document.getElementById('fileInput').click()">🔄 Восстановить из файла</button>
+    <button class="btn-danger-all" onclick="deleteAllData()">⚠️ Удалить всё</button>
+</div>
+
+<input type="file" id="fileInput" accept=".txt,.json" onchange="handleFileSelect(event)">
+
+<div id="notify" class="save-notification">✓ Данные сохранены</div>
+
+<script>
+    // Регистрация Service Worker для PWA
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js')
+            .then(() => console.log("Service Worker зарегистрирован"))
+            .catch(err => console.log("Ошибка SW:", err));
+    }
+
+    let isDarkTheme = localStorage.getItem('theme') === 'dark';
+    let saveTimeout = null;
+
+    function simpleCrypt(text, password) {
+        let result = "";
+        for (let i = 0; i < text.length; i++) {
+            result += String.fromCharCode(text.charCodeAt(i) ^ password.charCodeAt(i % password.length));
+        }
+        return btoa(unescape(encodeURIComponent(result)));
+    }
+
+    function simpleDecrypt(encoded, password) {
+        let text = decodeURIComponent(escape(atob(encoded)));
+        let result = "";
+        for (let i = 0; i < text.length; i++) {
+            result += String.fromCharCode(text.charCodeAt(i) ^ password.charCodeAt(i % password.length));
+        }
+        return result;
+    }
+
+    function toggleTheme() {
+        isDarkTheme = !isDarkTheme;
+        document.body.classList.toggle('dark-theme', isDarkTheme);
+        localStorage.setItem('theme', isDarkTheme ? 'dark' : 'light');
+    }
+
+    function showNotify(text) {
+        const n = document.getElementById('notify');
+        n.textContent = text;
+        n.classList.add('show');
+        setTimeout(() => n.classList.remove('show'), 2000);
+    }
+
+    function addNewRow(values = {}) {
+        const tbody = document.querySelector('#calculator tbody');
+        const row = tbody.insertRow(-1);
+        
+        const labels = ["Дата и время", "Название препарата", "Животное", "Концентрация (мг/мл)", "Дозировка (мг/кг)", "Вес (кг)", "Результат (мл)", "Действия"];
+        const cells = Array.from({length: 8}, (_, i) => {
+            const c = row.insertCell();
+            c.setAttribute('data-label', labels[i]);
+            return c;
+        });
+
+        cells[0].textContent = values.timestamp || new Date().toLocaleString('ru-RU');
+        cells[0].style.fontSize = "0.85em";
+
+        const createInp = (val, type, placeholder) => {
+            const i = document.createElement('input');
+            i.type = type;
+            i.value = val || '';
+            i.placeholder = placeholder;
+            i.oninput = () => { calculate(row); debounceSave(); };
+            return i;
+        };
+
+        cells[1].appendChild(createInp(values.drug, 'text', 'Название препарата'));
+        cells[2].appendChild(createInp(values.animal, 'text', 'Вид животного'));
+        cells[3].appendChild(createInp(values.a, 'number', 'мг/мл'));
+        cells[4].appendChild(createInp(values.b, 'number', 'мг/кг'));
+        cells[5].appendChild(createInp(values.c, 'number', 'кг'));
+
+        cells[6].className = 'result';
+        cells[6].textContent = '0.00';
+
+        const del = document.createElement('button');
+        del.textContent = 'Удалить';
+        del.className = 'delete-btn';
+        del.onclick = () => {
+            if(confirm('Вы уверены, что хотите удалить эту строку?')) { row.remove(); saveData(); }
+        };
+        cells[7].appendChild(del);
+
+        if(values.a) calculate(row);
+        filterRows();
+    }
+
+    function calculate(row) {
+        const ins = row.querySelectorAll('input[type="number"]');
+        const conc = parseFloat(ins[0].value) || 0;
+        const dose = parseFloat(ins[1].value) || 0;
+        const weight = parseFloat(ins[2].value) || 0;
+        const res = conc > 0 ? (dose * weight) / conc : 0;
+        row.cells[6].textContent = res.toFixed(2);
+    }
+
+    function debounceSave() {
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(saveData, 500);
+    }
+
+    function saveData() {
+        const rows = Array.from(document.querySelectorAll('#calculator tbody tr'));
+        const data = rows.map(r => ({
+            timestamp: r.cells[0].textContent,
+            drug: r.cells[1].querySelector('input').value,
+            animal: r.cells[2].querySelector('input').value,
+            a: r.cells[3].querySelector('input').value,
+            b: r.cells[4].querySelector('input').value,
+            c: r.cells[5].querySelector('input').value
+        }));
+        localStorage.setItem('doseCalculatorData', JSON.stringify(data));
+        showNotify('✓ Данные сохранены');
+    }
+
+    function filterRows() {
+        const query = document.getElementById('searchInput').value.toLowerCase();
+        const rows = document.querySelectorAll('#calculator tbody tr');
+        rows.forEach(row => {
+            const drug = row.cells[1].querySelector('input').value.toLowerCase();
+            const animal = row.cells[2].querySelector('input').value.toLowerCase();
+            row.style.display = (drug.includes(query) || animal.includes(query)) ? "" : "none";
+        });
+    }
+
+    function clearSearch() {
+        document.getElementById('searchInput').value = "";
+        filterRows();
+    }
+
+    function deleteAllData() {
+        if (confirm('Вы уверены, что хотите полностью очистить базу данных? Это действие необратимо.')) {
+            const check = prompt('Для подтверждения введите слово УДАЛИТЬ:');
+            if (check === 'УДАЛИТЬ') {
+                localStorage.removeItem('doseCalculatorData');
+                document.querySelector('#calculator tbody').innerHTML = '';
+                showNotify('🗑 База данных очищена');
+            } else if (check !== null) {
+                alert('Ошибка ввода. Удаление отменено.');
+            }
+        }
+    }
+
+    function exportEncrypted() {
+        const data = localStorage.getItem('doseCalculatorData') || '[]';
+        const password = prompt('Придумайте пароль для защиты файла:');
+        if (!password) return;
+
+        try {
+            const encrypted = simpleCrypt(data, password);
+            const blob = new Blob([encrypted], {type: 'text/plain'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `dose_backup_secure_${new Date().toLocaleDateString()}.txt`;
+            a.click();
+            showNotify('✓ Файл сохранен в Загрузки');
+        } catch (e) {
+            alert('Ошибка при шифровании.');
+        }
+    }
+
+    function handleFileSelect(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const content = e.target.result;
+            const password = prompt('Введите пароль для расшифровки:');
+            if (!password) return;
+
+            try {
+                const decrypted = simpleDecrypt(content.trim(), password);
+                const parsed = JSON.parse(decrypted);
+                
+                if (Array.isArray(parsed)) {
+                    if (confirm('Восстановить данные? Текущие записи будут заменены.')) {
+                        localStorage.setItem('doseCalculatorData', decrypted);
+                        location.reload();
+                    }
+                } else {
+                    throw new Error();
+                }
+            } catch (err) {
+                alert('Ошибка: Неверный пароль или поврежденный файл.');
+            }
+            event.target.value = '';
+        };
+        reader.readAsText(file);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.body.classList.toggle('dark-theme', isDarkTheme);
+        const saved = JSON.parse(localStorage.getItem('doseCalculatorData') || '[]');
+        saved.forEach(item => addNewRow(item));
+    });
+</script>
+</body>
+</html>
