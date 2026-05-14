@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Калькулятор дозировок v3.0.8</title>
+    <title>Калькулятор дозировок v3.0.9</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <link rel="manifest" href="manifest.json">
@@ -85,6 +85,13 @@
             padding: 10px 15px;
         }
 
+        .top-controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
         table {
             border-collapse: collapse;
             width: 100%;
@@ -129,7 +136,6 @@
         .btn-main {
             background-color: var(--primary);
             color: white;
-            margin-bottom: 20px;
         }
 
         .delete-btn {
@@ -178,28 +184,54 @@
 
         #fileInput { display: none; }
 
+        /* --- МОБИЛЬНАЯ ВЕРСИЯ (v3.0.9) --- */
         @media (max-width: 768px) {
             body { margin: 15px; }
-            .theme-toggle { width: auto; }
-            .btn-main, .backup-controls button { width: 100%; }
-            .search-container { max-width: 100%; }
+            .top-controls button, .btn-main, .backup-controls button { width: 100%; }
+            
             thead { display: none; }
             tr {
                 display: block;
                 margin-bottom: 15px;
                 border: 2px solid var(--primary);
                 border-radius: 6px;
-                padding: 10px;
                 background: var(--table-bg);
+                overflow: hidden;
             }
+
+            .card-header {
+                background: var(--primary);
+                color: white;
+                padding: 12px;
+                cursor: pointer;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                font-weight: bold;
+                font-size: 0.9em;
+            }
+
+            .card-header::after {
+                content: '▼';
+                transition: transform 0.3s;
+            }
+
+            tr.collapsed .card-header::after {
+                transform: rotate(-90deg);
+            }
+
+            /* Скрываем ячейки при сворачивании */
+            tr.collapsed td { display: none; }
+
             td {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
                 border: none;
                 border-bottom: 1px solid var(--border);
-                padding: 10px 0;
+                padding: 10px;
             }
+
             td::before {
                 content: attr(data-label);
                 font-weight: bold;
@@ -210,6 +242,13 @@
             }
             td input { flex: 1.5; }
             td:last-child { border-bottom: none; justify-content: center; padding-top: 10px; }
+            
+            /* Скрываем дублирующую дату в теле карточки */
+            td[data-label="Дата и время"] { display: none; }
+        }
+
+        @media (min-width: 769px) {
+            .card-header { display: none; }
         }
     </style>
 </head>
@@ -219,11 +258,16 @@
     <button class="theme-toggle" onclick="toggleTheme()">🌓 Сменить тему</button>
 </div>
 
-<h2>Калькулятор дозировок v3.0.8</h2>
+<h2>Калькулятор дозировок v3.0.9</h2>
 
 <div class="search-container">
     <input type="text" id="searchInput" placeholder="Поиск по препарату или животному..." oninput="filterRows()">
     <button class="btn-clear" onclick="clearSearch()">Очистить</button>
+</div>
+
+<div class="top-controls">
+    <button class="btn-main" onclick="addNewRow()">➕ Добавить строку</button>
+    <button class="btn-sec" onclick="toggleAllCards()">↕ Свернуть/Развернуть всё</button>
 </div>
 
 <table id="calculator">
@@ -242,7 +286,7 @@
     <tbody></tbody>
 </table>
 
-<button class="btn-main" onclick="addNewRow()">Добавить строку</button>
+<button class="btn-main" onclick="addNewRow()">➕ Добавить строку</button>
 
 <div class="backup-controls">
     <button class="btn-sec" onclick="exportEncrypted()">💾 Сохранить бэкап</button>
@@ -251,19 +295,16 @@
 </div>
 
 <input type="file" id="fileInput" accept=".txt,.json" onchange="handleFileSelect(event)">
-
 <div id="notify" class="save-notification">✓ Данные сохранены</div>
 
 <script>
-    // Регистрация Service Worker для PWA
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js')
-            .then(() => console.log("Service Worker зарегистрирован"))
-            .catch(err => console.log("Ошибка SW:", err));
+        navigator.serviceWorker.register('sw.js');
     }
 
     let isDarkTheme = localStorage.getItem('theme') === 'dark';
     let saveTimeout = null;
+    let allExpanded = true;
 
     function simpleCrypt(text, password) {
         let result = "";
@@ -295,31 +336,41 @@
         setTimeout(() => n.classList.remove('show'), 2000);
     }
 
-    function addNewRow(values = {}) {
+    function addNewRow(values = {}, isInitialLoad = false) {
         const tbody = document.querySelector('#calculator tbody');
-        const row = tbody.insertRow(-1);
+        // insertRow(0) всегда вставляет новую запись в самое начало списка
+        const row = tbody.insertRow(0);
         
+        // Заголовок для мобильного аккордеона
+        const cardHeader = document.createElement('div');
+        cardHeader.className = 'card-header';
+        row.prepend(cardHeader); 
+
         const labels = ["Дата и время", "Название препарата", "Животное", "Концентрация (мг/мл)", "Дозировка (мг/кг)", "Вес (кг)", "Результат (мл)", "Действия"];
-        const cells = Array.from({length: 8}, (_, i) => {
+        const ts = values.timestamp || new Date().toLocaleString('ru-RU');
+
+        const cells = labels.map((label, i) => {
             const c = row.insertCell();
-            c.setAttribute('data-label', labels[i]);
+            c.setAttribute('data-label', label);
             return c;
         });
 
-        cells[0].textContent = values.timestamp || new Date().toLocaleString('ru-RU');
-        cells[0].style.fontSize = "0.85em";
+        cells[0].textContent = ts;
 
         const createInp = (val, type, placeholder) => {
             const i = document.createElement('input');
             i.type = type;
             i.value = val || '';
             i.placeholder = placeholder;
-            i.oninput = () => { calculate(row); debounceSave(); };
+            i.oninput = () => { calculate(row); debounceSave(); updateHeader(); };
             return i;
         };
 
-        cells[1].appendChild(createInp(values.drug, 'text', 'Название препарата'));
-        cells[2].appendChild(createInp(values.animal, 'text', 'Вид животного'));
+        const inpDrug = createInp(values.drug, 'text', 'Название препарата');
+        const inpAnimal = createInp(values.animal, 'text', 'Животное');
+        
+        cells[1].appendChild(inpDrug);
+        cells[2].appendChild(inpAnimal);
         cells[3].appendChild(createInp(values.a, 'number', 'мг/мл'));
         cells[4].appendChild(createInp(values.b, 'number', 'мг/кг'));
         cells[5].appendChild(createInp(values.c, 'number', 'кг'));
@@ -330,13 +381,33 @@
         const del = document.createElement('button');
         del.textContent = 'Удалить';
         del.className = 'delete-btn';
-        del.onclick = () => {
-            if(confirm('Вы уверены, что хотите удалить эту строку?')) { row.remove(); saveData(); }
+        del.onclick = (e) => {
+            e.stopPropagation();
+            if(confirm('Удалить эту строку?')) { row.remove(); saveData(); }
         };
         cells[7].appendChild(del);
 
+        const updateHeader = () => {
+            const d = inpDrug.value || '...';
+            const a = inpAnimal.value || '...';
+            cardHeader.textContent = `${ts.split(',')[0]} | ${d} | ${a}`;
+        };
+
+        cardHeader.onclick = () => row.classList.toggle('collapsed');
+        updateHeader();
+
+        // Сворачиваем старые при загрузке, новые оставляем открытыми
+        if (isInitialLoad) row.classList.add('collapsed');
+
         if(values.a) calculate(row);
+        if(!isInitialLoad) saveData();
         filterRows();
+    }
+
+    function toggleAllCards() {
+        const rows = document.querySelectorAll('#calculator tbody tr');
+        allExpanded = !allExpanded;
+        rows.forEach(r => allExpanded ? r.classList.remove('collapsed') : r.classList.add('collapsed'));
     }
 
     function calculate(row) {
@@ -344,8 +415,7 @@
         const conc = parseFloat(ins[0].value) || 0;
         const dose = parseFloat(ins[1].value) || 0;
         const weight = parseFloat(ins[2].value) || 0;
-        const res = conc > 0 ? (dose * weight) / conc : 0;
-        row.cells[6].textContent = res.toFixed(2);
+        row.cells[6].textContent = conc > 0 ? ((dose * weight) / conc).toFixed(2) : '0.00';
     }
 
     function debounceSave() {
@@ -355,6 +425,7 @@
 
     function saveData() {
         const rows = Array.from(document.querySelectorAll('#calculator tbody tr'));
+        // Сохраняем массив так, как он виден на экране (новые в начале)
         const data = rows.map(r => ({
             timestamp: r.cells[0].textContent,
             drug: r.cells[1].querySelector('input').value,
@@ -369,8 +440,7 @@
 
     function filterRows() {
         const query = document.getElementById('searchInput').value.toLowerCase();
-        const rows = document.querySelectorAll('#calculator tbody tr');
-        rows.forEach(row => {
+        document.querySelectorAll('#calculator tbody tr').forEach(row => {
             const drug = row.cells[1].querySelector('input').value.toLowerCase();
             const animal = row.cells[2].querySelector('input').value.toLowerCase();
             row.style.display = (drug.includes(query) || animal.includes(query)) ? "" : "none";
@@ -383,70 +453,46 @@
     }
 
     function deleteAllData() {
-        if (confirm('Вы уверены, что хотите полностью очистить базу данных? Это действие необратимо.')) {
-            const check = prompt('Для подтверждения введите слово УДАЛИТЬ:');
-            if (check === 'УДАЛИТЬ') {
-                localStorage.removeItem('doseCalculatorData');
-                document.querySelector('#calculator tbody').innerHTML = '';
-                showNotify('🗑 База данных очищена');
-            } else if (check !== null) {
-                alert('Ошибка ввода. Удаление отменено.');
-            }
+        if (confirm('Очистить всю базу?') && prompt('Введите УДАЛИТЬ:') === 'УДАЛИТЬ') {
+            localStorage.removeItem('doseCalculatorData');
+            document.querySelector('#calculator tbody').innerHTML = '';
+            showNotify('🗑 База очищена');
         }
     }
 
     function exportEncrypted() {
         const data = localStorage.getItem('doseCalculatorData') || '[]';
-        const password = prompt('Придумайте пароль для защиты файла:');
+        const password = prompt('Пароль для бэкапа:');
         if (!password) return;
-
         try {
-            const encrypted = simpleCrypt(data, password);
-            const blob = new Blob([encrypted], {type: 'text/plain'});
+            const blob = new Blob([simpleCrypt(data, password)], {type: 'text/plain'});
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = `dose_backup_secure_${new Date().toLocaleDateString()}.txt`;
+            a.download = `dose_backup_v3.0.9.txt`;
             a.click();
-            showNotify('✓ Файл сохранен в Загрузки');
-        } catch (e) {
-            alert('Ошибка при шифровании.');
-        }
+        } catch (e) { alert('Ошибка экспорта'); }
     }
 
     function handleFileSelect(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
         const reader = new FileReader();
-        reader.onload = function(e) {
-            const content = e.target.result;
-            const password = prompt('Введите пароль для расшифровки:');
-            if (!password) return;
-
+        reader.onload = (e) => {
+            const password = prompt('Введите пароль:');
             try {
-                const decrypted = simpleDecrypt(content.trim(), password);
-                const parsed = JSON.parse(decrypted);
-                
-                if (Array.isArray(parsed)) {
-                    if (confirm('Восстановить данные? Текущие записи будут заменены.')) {
-                        localStorage.setItem('doseCalculatorData', decrypted);
-                        location.reload();
-                    }
-                } else {
-                    throw new Error();
+                const dec = simpleDecrypt(e.target.result.trim(), password);
+                if (Array.isArray(JSON.parse(dec))) {
+                    localStorage.setItem('doseCalculatorData', dec);
+                    location.reload();
                 }
-            } catch (err) {
-                alert('Ошибка: Неверный пароль или поврежденный файл.');
-            }
-            event.target.value = '';
+            } catch { alert('Ошибка расшифровки'); }
         };
-        reader.readAsText(file);
+        reader.readAsText(event.target.files[0]);
     }
 
     document.addEventListener('DOMContentLoaded', () => {
         document.body.classList.toggle('dark-theme', isDarkTheme);
         const saved = JSON.parse(localStorage.getItem('doseCalculatorData') || '[]');
-        saved.forEach(item => addNewRow(item));
+        // Загружаем массив с конца, так как addNewRow(0) вставляет сверху
+        saved.reverse().forEach(item => addNewRow(item, true));
     });
 </script>
 </body>
