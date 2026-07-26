@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Калькулятор дозировок v3.0.9</title>
+    <title>Калькулятор дозировок v3.0.10</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <link rel="manifest" href="manifest.json">
@@ -159,6 +159,10 @@
             color: var(--success);
         }
 
+        .result.invalid {
+            color: var(--danger);
+        }
+
         .backup-controls {
             margin-top: 30px;
             padding-top: 20px;
@@ -184,14 +188,17 @@
 
         #fileInput { display: none; }
 
-        /* --- МОБИЛЬНАЯ ВЕРСИЯ (v3.0.9) --- */
+        /* --- МОБИЛЬНАЯ ВЕРСИЯ (v3.0.10) --- */
         @media (max-width: 768px) {
             body { margin: 15px; }
             .top-controls button, .btn-main, .backup-controls button { width: 100%; }
             
             thead { display: none; }
             tr {
-                display: block;
+                /* flex вместо block: позволяет через order переставить
+                   card-header-cell наверх, оставаясь при этом валидной <tr><td> структурой */
+                display: flex;
+                flex-direction: column;
                 margin-bottom: 15px;
                 border: 2px solid var(--primary);
                 border-radius: 6px;
@@ -199,7 +206,9 @@
                 overflow: hidden;
             }
 
-            .card-header {
+            /* Заголовок карточки — обычная <td>, а не div внутри <tr> (было невалидно в v3.0.9) */
+            .card-header-cell {
+                order: -1;
                 background: var(--primary);
                 color: white;
                 padding: 12px;
@@ -209,19 +218,20 @@
                 align-items: center;
                 font-weight: bold;
                 font-size: 0.9em;
+                border: none;
             }
 
-            .card-header::after {
+            .card-header-cell::after {
                 content: '▼';
                 transition: transform 0.3s;
             }
 
-            tr.collapsed .card-header::after {
+            tr.collapsed .card-header-cell::after {
                 transform: rotate(-90deg);
             }
 
-            /* Скрываем ячейки при сворачивании */
-            tr.collapsed td { display: none; }
+            /* Скрываем ячейки при сворачивании, кроме самого заголовка */
+            tr.collapsed td:not(.card-header-cell) { display: none; }
 
             td {
                 display: flex;
@@ -241,14 +251,17 @@
                 margin-right: 5px;
             }
             td input { flex: 1.5; }
-            td:last-child { border-bottom: none; justify-content: center; padding-top: 10px; }
+
+            /* Явный класс вместо td:last-child — теперь после ячейки "Действия"
+               в DOM идёт card-header-cell, и last-child указывал бы уже не туда */
+            .actions-cell { border-bottom: none; justify-content: center; padding-top: 10px; }
             
             /* Скрываем дублирующую дату в теле карточки */
             td[data-label="Дата и время"] { display: none; }
         }
 
         @media (min-width: 769px) {
-            .card-header { display: none; }
+            .card-header-cell { display: none; }
         }
     </style>
 </head>
@@ -258,7 +271,7 @@
     <button class="theme-toggle" onclick="toggleTheme()">🌓 Сменить тему</button>
 </div>
 
-<h2>Калькулятор дозировок v3.0.9</h2>
+<h2>Калькулятор дозировок v3.0.10</h2>
 
 <div class="search-container">
     <input type="text" id="searchInput" placeholder="Поиск по препарату или животному..." oninput="filterRows()">
@@ -304,7 +317,6 @@
 
     let isDarkTheme = localStorage.getItem('theme') === 'dark';
     let saveTimeout = null;
-    let allExpanded = true;
 
     function simpleCrypt(text, password) {
         let result = "";
@@ -340,11 +352,6 @@
         const tbody = document.querySelector('#calculator tbody');
         // insertRow(0) всегда вставляет новую запись в самое начало списка
         const row = tbody.insertRow(0);
-        
-        // Заголовок для мобильного аккордеона
-        const cardHeader = document.createElement('div');
-        cardHeader.className = 'card-header';
-        row.prepend(cardHeader); 
 
         const labels = ["Дата и время", "Название препарата", "Животное", "Концентрация (мг/мл)", "Дозировка (мг/кг)", "Вес (кг)", "Результат (мл)", "Действия"];
         const ts = values.timestamp || new Date().toLocaleString('ru-RU');
@@ -360,6 +367,7 @@
         const createInp = (val, type, placeholder) => {
             const i = document.createElement('input');
             i.type = type;
+            if (type === 'number') { i.min = '0'; i.step = 'any'; }
             i.value = val || '';
             i.placeholder = placeholder;
             i.oninput = () => { calculate(row); debounceSave(); updateHeader(); };
@@ -386,14 +394,20 @@
             if(confirm('Удалить эту строку?')) { row.remove(); saveData(); }
         };
         cells[7].appendChild(del);
+        cells[7].classList.add('actions-cell');
+
+        // Заголовок для мобильного аккордеона: валидная <td> (не div внутри <tr>, как было в v3.0.9),
+        // визуально переносится наверх карточки через CSS order
+        const cardHeaderCell = row.insertCell(-1);
+        cardHeaderCell.className = 'card-header-cell';
+        cardHeaderCell.onclick = () => row.classList.toggle('collapsed');
 
         const updateHeader = () => {
             const d = inpDrug.value || '...';
             const a = inpAnimal.value || '...';
-            cardHeader.textContent = `${ts.split(',')[0]} | ${d} | ${a}`;
+            cardHeaderCell.textContent = `${ts.split(',')[0]} | ${d} | ${a}`;
         };
 
-        cardHeader.onclick = () => row.classList.toggle('collapsed');
         updateHeader();
 
         // Сворачиваем старые при загрузке, новые оставляем открытыми
@@ -406,8 +420,10 @@
 
     function toggleAllCards() {
         const rows = document.querySelectorAll('#calculator tbody tr');
-        allExpanded = !allExpanded;
-        rows.forEach(r => allExpanded ? r.classList.remove('collapsed') : r.classList.add('collapsed'));
+        // Состояние определяем по факту DOM, а не по отдельному флагу (в v3.0.9 флаг
+        // рассинхронизировался с реальным состоянием карточек и первый клик "терялся")
+        const hasCollapsed = document.querySelectorAll('#calculator tbody tr.collapsed').length > 0;
+        rows.forEach(r => r.classList.toggle('collapsed', !hasCollapsed));
     }
 
     function calculate(row) {
@@ -415,7 +431,15 @@
         const conc = parseFloat(ins[0].value) || 0;
         const dose = parseFloat(ins[1].value) || 0;
         const weight = parseFloat(ins[2].value) || 0;
-        row.cells[6].textContent = conc > 0 ? ((dose * weight) / conc).toFixed(2) : '0.00';
+        const resultCell = row.cells[6];
+
+        if (conc < 0 || dose < 0 || weight < 0) {
+            resultCell.textContent = '⚠ проверьте значения';
+            resultCell.classList.add('invalid');
+            return;
+        }
+        resultCell.classList.remove('invalid');
+        resultCell.textContent = conc > 0 ? ((dose * weight) / conc).toFixed(2) : '0.00';
     }
 
     function debounceSave() {
@@ -468,7 +492,10 @@
             const blob = new Blob([simpleCrypt(data, password)], {type: 'text/plain'});
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = `dose_backup_v3.0.9.txt`;
+            const now = new Date();
+            const pad = n => String(n).padStart(2, '0');
+            const stamp = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
+            a.download = `dose_backup_v3.0.10_${stamp}.txt`;
             a.click();
         } catch (e) { alert('Ошибка экспорта'); }
     }

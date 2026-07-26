@@ -1,8 +1,8 @@
 // Динамическое имя кэша на основе даты последнего изменения файла или текущего дня
-const CACHE_NAME = 'dose-calc-cache-v1'; 
+const CACHE_NAME = 'dose-calc-cache-v2'; // v3.0.10: имя обязательно меняется при каждом релизе,
+// иначе activate-хук ниже не увидит "новую" версию и не пересоздаст кэш
 const ASSETS = [
   './',
-  './index.html',
   './manifest.json',
   './icon-192.png',
   './icon-512.png'
@@ -26,7 +26,8 @@ self.addEventListener('activate', event => {
           if (key !== CACHE_NAME) return caches.delete(key);
         })
       );
-    })
+    }).then(() => self.clients.claim()) // сразу берём под контроль уже открытые вкладки,
+    // не дожидаясь перезагрузки страницы пользователем
   );
 });
 
