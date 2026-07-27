@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Калькулятор дозировок v3.0.12</title>
+    <title>Калькулятор дозировок v3.0.13</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <link rel="manifest" href="manifest.json">
@@ -188,7 +188,7 @@
 
         #fileInput { display: none; }
 
-        /* --- МОБИЛЬНАЯ ВЕРСИЯ (v3.0.12) --- */
+        /* --- МОБИЛЬНАЯ ВЕРСИЯ (v3.0.13) --- */
         @media (max-width: 768px) {
             body { margin: 15px; }
             .top-controls button, .btn-main, .backup-controls button { width: 100%; }
@@ -206,12 +206,15 @@
             /* Заголовок карточки — валидная <td>, физически первая в DOM (см. JS).
                Стрелка "приколота" в правый верхний угол через position:absolute и
                не участвует в раскладке текста. Текст — обычный блочный элемент
-               с text-align:left, переносится как обычный абзац. Раньше стрелка и
-               текст были связаны через flex (justify-content/align-items), из-за
-               чего их взаимное положение "гуляло" в зависимости от того, влез ли
-               текст в одну строку или перенёсся на несколько — теперь эта связь
-               убрана полностью. */
+               с text-align:left, переносится как обычный абзац.
+               ВАЖНО: явно указываем display:block — иначе общее правило ниже
+               "td { display:flex; justify-content:space-between; ... }" применяется
+               и к этой ячейке тоже (т.к. это тоже <td>), и единственный оставшийся
+               flex-элемент (текст, раз стрелка выведена из потока через absolute)
+               сдвигается непредсказуемо в зависимости от своей ширины — именно
+               это и вызывало "гуляющее" выравнивание в v3.0.12. */
             .card-header-cell {
+                display: block;
                 position: relative;
                 background: var(--primary);
                 color: white;
@@ -277,7 +280,7 @@
     <button class="theme-toggle" onclick="toggleTheme()">🌓 Сменить тему</button>
 </div>
 
-<h2>Калькулятор дозировок v3.0.12</h2>
+<h2>Калькулятор дозировок v3.0.13</h2>
 
 <div class="search-container">
     <input type="text" id="searchInput" placeholder="Поиск по препарату или животному..." oninput="filterRows()">
@@ -515,7 +518,7 @@
             const now = new Date();
             const pad = n => String(n).padStart(2, '0');
             const stamp = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
-            a.download = `dose_backup_v3.0.12_${stamp}.txt`;
+            a.download = `dose_backup_v3.0.13_${stamp}.txt`;
             a.click();
         } catch (e) { alert('Ошибка экспорта'); }
     }
