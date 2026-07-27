@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Калькулятор дозировок v3.0.13</title>
+    <title>Калькулятор дозировок v3.0.14</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <link rel="manifest" href="manifest.json">
@@ -188,7 +188,7 @@
 
         #fileInput { display: none; }
 
-        /* --- МОБИЛЬНАЯ ВЕРСИЯ (v3.0.13) --- */
+        /* --- МОБИЛЬНАЯ ВЕРСИЯ (v3.0.14) --- */
         @media (max-width: 768px) {
             body { margin: 15px; }
             .top-controls button, .btn-main, .backup-controls button { width: 100%; }
@@ -228,6 +228,15 @@
             .card-header-title {
                 display: block;
                 text-align: left;
+            }
+
+            /* Без этого правила общее "td::before { content: attr(data-label); ... }"
+               всё равно генерирует пустой ::before (атрибута data-label у этой ячейки нет,
+               но сам псевдоэлемент создаётся) — невидимая пустая строка со своим font-size
+               оборачивается в анонимный блок и толкает текст заголовка вниз. Именно это
+               выпало при переписывании блока в v3.0.12. */
+            .card-header-cell::before {
+                content: none;
             }
 
             .card-header-arrow {
@@ -280,7 +289,7 @@
     <button class="theme-toggle" onclick="toggleTheme()">🌓 Сменить тему</button>
 </div>
 
-<h2>Калькулятор дозировок v3.0.13</h2>
+<h2>Калькулятор дозировок v3.0.14</h2>
 
 <div class="search-container">
     <input type="text" id="searchInput" placeholder="Поиск по препарату или животному..." oninput="filterRows()">
@@ -518,7 +527,7 @@
             const now = new Date();
             const pad = n => String(n).padStart(2, '0');
             const stamp = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}`;
-            a.download = `dose_backup_v3.0.13_${stamp}.txt`;
+            a.download = `dose_backup_v3.0.14_${stamp}.txt`;
             a.click();
         } catch (e) { alert('Ошибка экспорта'); }
     }
